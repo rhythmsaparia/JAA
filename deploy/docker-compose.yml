@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+    image: JAA:${JAA_VERSION:-latest}
+    restart: always
+    env_file:
+    - .env
+    labels:
+      # Enables traefik for this container.
+    - traefik.enable=true
+    - traefik.http.routers.JAA.rule=Host(`${JAA_TRAEFIK_HOST:-JAA.localhost}`)
+    - traefik.http.routers.JAA.entrypoints=http
+    - traefik.http.routers.JAA.service=JAA
+    - traefik.http.services.JAA.loadbalancer.server.port=${JAA_PORT:-8000}
+    networks:
+    - default
+    - traefik-shared
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      JAA_HOST: 0.0.0.0
+
+  redis:
+    image: bitnami/redis:6.2.5
+    hostname: "JAA-redis"
+    restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: redis-cli ping
+      interval: 1s
+      timeout: 3s
+      retries: 50
+
+
+
+networks:
+  # Network for traefik.
+  traefik-shared:
+    name: traefik-shared
